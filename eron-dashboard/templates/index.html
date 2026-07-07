@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eron Server</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1117'/%3E%3Crect x='6' y='6' width='20' height='20' rx='3' fill='none' stroke='%2330363d' stroke-width='1.5'/%3E%3Crect x='9' y='9' width='14' height='14' rx='2' fill='%23161b22'/%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%233fb950'/%3E%3Ccircle cx='16' cy='16' r='1.5' fill='%230d1117'/%3E%3Crect x='2' y='11' width='4' height='2' rx='1' fill='%2358a6ff'/%3E%3Crect x='2' y='19' width='4' height='2' rx='1' fill='%2358a6ff'/%3E%3Crect x='26' y='11' width='4' height='2' rx='1' fill='%2358a6ff'/%3E%3Crect x='26' y='19' width='4' height='2' rx='1' fill='%2358a6ff'/%3E%3Crect x='11' y='2' width='2' height='4' rx='1' fill='%2358a6ff'/%3E%3Crect x='19' y='2' width='2' height='4' rx='1' fill='%2358a6ff'/%3E%3Crect x='11' y='26' width='2' height='4' rx='1' fill='%2358a6ff'/%3E%3Crect x='19' y='26' width='2' height='4' rx='1' fill='%2358a6ff'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --blue: #58a6ff; --green: #3fb950; --orange: #d29922;
+    --red: #f85149; --purple: #bc8cff; --cyan: #79c0ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header h1 span { color: var(--blue); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  #uptime-badge { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
+  #status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  .dot.offline { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* Cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .card-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .card-value { font-size: 26px; font-weight: 700; line-height: 1; }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 5px; min-height: 14px; }
+  .card-bar { height: 3px; border-radius: 2px; background: var(--bg3); margin-top: 10px; overflow: hidden; }
+  .card-bar-fill { height: 100%; border-radius: 2px; transition: width .5s ease; }
+  .warn { color: var(--orange) !important; }
+  .crit { color: var(--red) !important; }
+
+  .c-cpu   .card-value { color: var(--blue); }   .c-cpu   .card-bar-fill { background: var(--blue); }
+  .c-ram   .card-value { color: var(--purple); } .c-ram   .card-bar-fill { background: var(--purple); }
+  .c-temp  .card-value { color: var(--orange); } .c-temp  .card-bar-fill { background: var(--orange); }
+  .c-watts .card-value { color: var(--green); }  .c-watts .card-bar-fill { background: var(--green); }
+  .c-disk  .card-value { color: var(--muted); }  .c-disk  .card-bar-fill { background: var(--muted); }
+  .c-net   .card-value { font-size: 17px; color: var(--cyan); }
+  .c-load  .card-value { font-size: 22px; color: var(--cyan); }
+
+  /* Section */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .section-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .range-btns { display: flex; gap: 4px; }
+  .range-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .15s; }
+  .range-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .range-btn.active { background: var(--blue); border-color: var(--blue); color: #0d1117; font-weight: 600; }
+
+  /* Charts */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .chart-title { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+  .chart-box canvas { max-height: 160px; }
+
+  /* Containers */
+  .containers-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--bg3); color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 10px 16px; text-align: left; }
+  td { padding: 10px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+  tr:hover td { background: var(--bg3); }
+  .pct-bar { display: inline-block; width: 50px; height: 4px; background: var(--bg3); border-radius: 2px; vertical-align: middle; margin-left: 6px; overflow: hidden; }
+  .pct-fill { height: 100%; border-radius: 2px; }
+  .no-data { text-align: center; color: var(--muted); padding: 32px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Eron <span>Server</span> — Dell Latitude i7-8650U</h1>
+  <div class="header-right">
+    <span id="uptime-badge">uptime —</span>
+    <div id="status"><div class="dot" id="dot"></div><span id="status-text">conectando...</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="cards">
+    <div class="card c-cpu">
+      <div class="card-label">CPU</div>
+      <div class="card-value" id="v-cpu">—</div>
+      <div class="card-sub" id="s-cpu">load —</div>
+      <div class="card-bar"><div class="card-bar-fill" id="b-cpu" style="width:0%"></div></div>
+    </div>
+    <div class="card c-ram">
+      <div class="card-label">RAM</div>
+      <div class="card-value" id="v-ram">—</div>
+      <div class="card-sub" id="s-ram">swap —%</div>
+      <div class="card-bar"><div class="card-bar-fill" id="b-ram" style="width:0%"></div></div>
+    </div>
+    <div class="card c-temp">
+      <div class="card-label">Temperatura</div>
+      <div class="card-value" id="v-temp">—</div>
+      <div class="card-sub" id="s-fan">fan — RPM</div>
+      <div class="card-bar"><div class="card-bar-fill" id="b-temp" style="width:0%"></div></div>
+    </div>
+    <div class="card c-watts">
+      <div class="card-label">Energia (RAPL)</div>
+      <div class="card-value" id="v-watts">—</div>
+      <div class="card-sub">TDP máx 22 W</div>
+      <div class="card-bar"><div class="card-bar-fill" id="b-watts" style="width:0%"></div></div>
+    </div>
+    <div class="card c-disk">
+      <div class="card-label">Disco</div>
+      <div class="card-value" id="v-disk">—</div>
+      <div class="card-sub" id="s-disk">— GB usados</div>
+      <div class="card-bar"><div class="card-bar-fill" id="b-disk" style="width:0%"></div></div>
+    </div>
+    <div class="card c-net">
+      <div class="card-label">Rede MB/s</div>
+      <div class="card-value" id="v-net">— / —</div>
+      <div class="card-sub">↓ RX &nbsp;·&nbsp; ↑ TX &nbsp;(KB/s)</div>
+    </div>
+    <div class="card c-load">
+      <div class="card-label">Disco I/O MB/s</div>
+      <div class="card-value" id="v-diskio">— / —</div>
+      <div class="card-sub">↓ leitura · ↑ escrita</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="section-header">
+    <div class="section-title">Histórico</div>
+    <div class="range-btns">
+      <button class="range-btn" data-r="1h">1H</button>
+      <button class="range-btn" data-r="6h">6H</button>
+      <button class="range-btn active" data-r="24h">24H</button>
+      <button class="range-btn" data-r="7d">7D</button>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-box">
+      <div class="chart-title">CPU %</div>
+      <canvas id="chart-cpu"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">RAM % &amp; Swap %</div>
+      <canvas id="chart-ram"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Temperatura °C</div>
+      <canvas id="chart-temp"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Consumo de Energia W</div>
+      <canvas id="chart-watts"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Rede KB/s (↓RX · ↑TX)</div>
+      <canvas id="chart-net"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Disco I/O MB/s (↓leitura · ↑escrita)</div>
+      <canvas id="chart-disk"></canvas>
+    </div>
+  </div>
+
+  <!-- Containers -->
+  <div class="section-header">
+    <div class="section-title">Containers Docker</div>
+  </div>
+  <div class="containers-box">
+    <table>
+      <thead><tr>
+        <th>Container</th><th>CPU %</th><th>RAM MB</th><th>RAM %</th>
+      </tr></thead>
+      <tbody id="containers-body">
+        <tr><td colspan="4" class="no-data">carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const BASE = {
+  responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#21262d', borderColor: '#30363d', borderWidth: 1,
+      titleColor: '#8b949e', bodyColor: '#e6edf3',
+      callbacks: { title: i => new Date(i[0].parsed.x).toLocaleString('pt-BR') }
+    }
+  },
+  scales: {
+    x: { type: 'time', time: { tooltipFormat: 'dd/MM HH:mm' },
+         grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 6, font: { size: 10 } } },
+    y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 10 } }, beginAtZero: true }
+  }
+};
+
+function mkChart(id, datasets) {
+  const ctx = document.getElementById(id).getContext('2d');
+  const opts = JSON.parse(JSON.stringify(BASE));
+  if (datasets.length > 1) opts.plugins.legend.display = true;
+  return new Chart(ctx, { type: 'line', data: { datasets: datasets.map(d => ({
+    label: d.label, data: [], borderColor: d.color,
+    backgroundColor: d.color + '15', fill: true,
+    borderWidth: 1.5, pointRadius: 0, tension: 0.3,
+    spanGaps: true
+  }))}, options: opts });
+}
+
+const charts = {
+  cpu:   mkChart('chart-cpu',   [{ color: '#58a6ff', label: 'CPU %' }]),
+  ram:   mkChart('chart-ram',   [{ color: '#bc8cff', label: 'RAM %' }, { color: '#f0883e', label: 'Swap %' }]),
+  temp:  mkChart('chart-temp',  [{ color: '#d29922', label: '°C' }]),
+  watts: mkChart('chart-watts', [{ color: '#3fb950', label: 'W' }]),
+  net:   mkChart('chart-net',   [{ color: '#79c0ff', label: '↓RX KB/s' }, { color: '#56d364', label: '↑TX KB/s' }]),
+  disk:  mkChart('chart-disk',  [{ color: '#e3b341', label: '↓leitura' }, { color: '#db6d28', label: '↑escrita' }]),
+};
+
+let range = '24h';
+
+function pts(labels, values) {
+  return labels.map((t, i) => ({ x: t, y: values[i] }));
+}
+
+async function loadHistory(r) {
+  const tasks = [
+    ['cpu',       [['cpu', 0]]],
+    ['ram',       [['ram', 0], ['swap', 1]]],
+    ['temp',      [['temp', 0]]],
+    ['watts',     [['watts', 0]]],
+    ['net',       [['net_rx', 0], ['net_tx', 1]]],
+    ['disk',      [['disk_read', 0], ['disk_write', 1]]],
+  ];
+  await Promise.all(tasks.map(async ([cid, metrics]) => {
+    const results = await Promise.all(metrics.map(([m]) =>
+      fetch(`/api/history?metric=${m}&range=${r}`).then(x => x.json()).catch(() => null)
+    ));
+    metrics.forEach(([m, idx], i) => {
+      if (results[i]) {
+        const scale = (m === 'net_rx' || m === 'net_tx') ? 1024 : 1;
+        charts[cid].data.datasets[idx].data = pts(
+          results[i].labels,
+          results[i].values.map(v => v != null ? v * scale : null)
+        );
+      }
+    });
+    charts[cid].update('none');
+  }));
+}
+
+function bar(id, pct, max = 100) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.min((pct || 0) / max * 100, 100) + '%';
+}
+
+function fmt(v, unit = '', dec = 1) {
+  return v != null ? v.toFixed(dec) + unit : '—';
+}
+
+function uptime(ts) {
+  const s = Math.floor(Date.now() / 1000) - ts + 60;
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+async function loadCurrent() {
+  try {
+    const d = await fetch('/api/current').then(r => r.json());
+    if (!d.ts) return;
+
+    document.getElementById('v-cpu').textContent = fmt(d.cpu, '%', 1);
+    document.getElementById('s-cpu').textContent = `load avg ${d.load1 ?? '—'}`;
+    bar('b-cpu', d.cpu);
+
+    document.getElementById('v-ram').textContent = fmt(d.ram, '%', 1);
+    document.getElementById('s-ram').textContent = `${d.ram_gb ?? '—'} GB usados · swap ${d.swap ?? '—'}%`;
+    bar('b-ram', d.ram);
+
+    const vt = document.getElementById('v-temp');
+    vt.textContent = fmt(d.temp, '°C', 1);
+    vt.className = 'card-value' + (d.temp >= 85 ? ' crit' : d.temp >= 70 ? ' warn' : '');
+    document.getElementById('s-fan').textContent = `fan ${d.fan_rpm != null ? d.fan_rpm + ' RPM' : '— RPM'}`;
+    bar('b-temp', d.temp ?? 0, 100);
+
+    document.getElementById('v-watts').textContent = fmt(d.watts, ' W', 1);
+    bar('b-watts', d.watts ?? 0, 22);
+
+    document.getElementById('v-disk').textContent = fmt(d.disk, '%', 1);
+    document.getElementById('s-disk').textContent = `${d.disk_gb ?? '—'} GB usados`;
+    bar('b-disk', d.disk);
+
+    const rxKB = d.net_rx != null ? (d.net_rx * 1024).toFixed(1) : '—';
+    const txKB = d.net_tx != null ? (d.net_tx * 1024).toFixed(1) : '—';
+    document.getElementById('v-net').textContent = `↓${rxKB} / ↑${txKB}`;
+
+    document.getElementById('v-diskio').textContent =
+      `↓${fmt(d.disk_read, '', 2)} / ↑${fmt(d.disk_write, '', 2)}`;
+
+    // uptime estimate from first record
+    document.getElementById('uptime-badge').textContent = 'dados: ' + uptime(d.ts);
+
+    // Containers
+    const tbody = document.getElementById('containers-body');
+    if (!d.containers?.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="no-data">nenhum container ativo</td></tr>';
+    } else {
+      tbody.innerHTML = d.containers.sort((a,b) => b.mem_pct - a.mem_pct).map(c => {
+        const cls = c.mem_pct >= 95 ? 'crit' : c.mem_pct >= 80 ? 'warn' : '';
+        const fill = c.mem_pct >= 95 ? '#f85149' : c.mem_pct >= 80 ? '#d29922' : '#3fb950';
+        return `<tr>
+          <td>${c.name}</td>
+          <td>${c.cpu}%</td>
+          <td>${c.mem_mb} MB</td>
+          <td class="${cls}">${c.mem_pct}%<span class="pct-bar"><span class="pct-fill" style="width:${Math.min(c.mem_pct,100)}%;background:${fill}"></span></span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    document.getElementById('dot').className = 'dot';
+    document.getElementById('status-text').textContent =
+      'online · ' + new Date().toLocaleTimeString('pt-BR');
+  } catch {
+    document.getElementById('dot').className = 'dot offline';
+    document.getElementById('status-text').textContent = 'offline';
+  }
+}
+
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    range = btn.dataset.r;
+    loadHistory(range);
+  });
+});
+
+loadCurrent();
+loadHistory(range);
+setInterval(loadCurrent, 15000);
+setInterval(() => loadHistory(range), 60000);
+</script>
+</body>
+</html>

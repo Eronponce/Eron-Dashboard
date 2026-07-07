@@ -1,0 +1,16 @@
+services:
+  dashboard:
+    build: .
+    container_name: eron-dashboard
+    privileged: true
+    pid: host
+    ports:
+      - "8088:8088"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dashboard_data:/data
+      - /:/host:ro
+
+volumes:
+  dashboard_data:

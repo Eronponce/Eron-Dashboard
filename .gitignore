@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+.env
+.env.local
+*.db
+*.sqlite3
+/data/
+node_modules/
+.DS_Store
+*.log
+logisim-eron-firebase-adminsdk-*.json
