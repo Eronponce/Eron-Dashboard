@@ -38,6 +38,7 @@ ssh -i ~/.ssh/id_rsa -o BatchMode=yes eronp@100.92.163.25 'echo OK'
 | UniFil Exams | http://100.92.163.25:3000 | 3000 | ✅ always-on (Docker) |
 | Canvas API | http://100.92.163.25:5000 | 5000 | ✅ always-on (Docker) |
 | LanguageTool | http://100.92.163.25:8081 | 8081 | ✅ always-on (Docker) |
+| **Eron Dashboard** | **http://100.92.163.25:8088** | **8088** | **✅ always-on (Docker)** |
 | **Mirror Server** | **http://100.92.163.25:3001** | **3001** | **✅ always-on (PM2)** |
 | Netdata (monit.) | http://100.92.163.25:19999 | 19999 | ✅ always-on |
 
@@ -58,6 +59,13 @@ Internet / Tailscale
         │               normaliza /check → /v2/check
         │                       │
         │              :8082 ──► [eron-languagetool]  Java LT server (Docker)
+        │
+        ├── :8088 ──► [eron-dashboard]  Flask metrics collector (Docker)
+        │                       │
+        │               monitora: CPU/RAM/temp/disk/rede
+        │               acesso: docker.sock + /sys + /proc
+        │               DB: SQLite em /data/metrics.db
+        │               histórico: 90 dias (limpeza automática)
         │
         ├── :3001 ──► [mirror-server]  Node.js + SQLite (PM2, não Docker)
         │                       │
@@ -145,6 +153,7 @@ ssh eronp@100.92.163.25 'cd ~/Canva_Api && docker compose up -d'
 - [UniFil Exams](./unifil-exams.md)
 - [Canvas API](./canvas-api.md)
 - [LanguageTool](./languagetool.md)
+- [**Eron Dashboard**](./DEPLOYMENT.md) — Métricas remoto (CPU/RAM/temp/rede/Docker)
 - [Mirror Server (Digital Logic Sim)](./mirror-server.md)
 
 ---
